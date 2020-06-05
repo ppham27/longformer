@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from . import file_utils
+import operator
 import re
 
 
@@ -48,14 +49,18 @@ def read_triviaqa_data(qajson):
     return data
 
 
-def answer_index_in_document(answer, document):
-    answer_list = answer['NormalizedAliases']
-    answers_in_doc = []
-    for answer_string_in_doc in answer_list:
-        indices = [m.start() for m in re.finditer(answer_string_in_doc, document, flags=re.IGNORECASE)]
-        for index in indices:
-            answers_in_doc.append({
-                'text': answer_string_in_doc,
-                'answer_start': index
-            })
-    return answers_in_doc
+def answer_index_in_document(answer, document, normalize_fns=None):
+  answer_list = answer['NormalizedAliases'].copy()
+  if normalize_fns:
+    for normalize_fn in normalize_fns:
+      answer_list.extend(map(normalize_fn, answer['Aliases']))
+  answers_in_doc = []
+  for answer_string_in_doc in set(answer_list):
+    indices = [m.start() for m in re.finditer(
+        answer_string_in_doc.encode('utf-8'), document, flags=re.IGNORECASE)]
+    for index in indices:
+      answers_in_doc.append({
+          'text': answer_string_in_doc,
+          'answer_start': index
+      })
+  return sorted(answers_in_doc, key=operator.itemgetter('answer_start'))
